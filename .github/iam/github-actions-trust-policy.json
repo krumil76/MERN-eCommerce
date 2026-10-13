@@ -10,7 +10,7 @@
       "Condition": {
         "StringEquals": {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": "repo:krumil76/MERN-eCommerce:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub": "repo:krumil76@148176993/MERN-eCommerce@1415627691:ref:refs/heads/main"
         }
       }
     }
