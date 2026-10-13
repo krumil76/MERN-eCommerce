@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendCommandsToEcommerceInstance",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": [
+        "arn:aws:ssm:us-east-2::document/AWS-RunShellScript",
+        "arn:aws:ec2:us-east-2:311937350493:instance/i-04706b3137e89814b"
+      ]
+    },
+    {
+      "Sid": "CheckDeploymentCommandStatus",
+      "Effect": "Allow",
+      "Action": "ssm:GetCommandInvocation",
+      "Resource": "*"
+    }
+  ]
+}

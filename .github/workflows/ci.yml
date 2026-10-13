@@ -88,3 +88,131 @@ jobs:
           docker push "$REGISTRY/ecommerce-frontend:$IMAGE_TAG"
           docker tag "$REGISTRY/ecommerce-frontend:$IMAGE_TAG" "$REGISTRY/ecommerce-frontend:latest"
           docker push "$REGISTRY/ecommerce-frontend:latest"
+
+      - name: Deploy to EC2 through SSM
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          INSTANCE_ID: i-04706b3137e89814b
+        run: |
+          set -euo pipefail
+          SCRIPT_B64="$(base64 -w 0 scripts/deploy-ec2.sh)"
+          PARAMS="$(jq -cn --arg script "$SCRIPT_B64" --arg tag "$IMAGE_TAG" \
+            '{commands: ["printf %s " + $script + " | base64 -d > /tmp/ecommerce-deploy.sh", "sudo install -o root -g root -m 700 /tmp/ecommerce-deploy.sh /usr/local/bin/ecommerce-deploy.sh", "sudo /usr/local/bin/ecommerce-deploy.sh " + $tag]}')"
+
+          COMMAND_ID="$(aws ssm send-command \
+            --region us-east-2 \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters "$PARAMS" \
+            --comment "E-commerce deployment $IMAGE_TAG" \
+            --query 'Command.CommandId' \
+            --output text)"
+
+          echo "SSM command ID: $COMMAND_ID"
+          STATUS="Pending"
+
+          for attempt in $(seq 1 60); do
+            STATUS="$(aws ssm get-command-invocation \
+              --region us-east-2 \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query Status \
+              --output text 2>/dev/null || true)"
+
+            echo "Deployment status: ${STATUS:-Pending} ($attempt/60)"
+
+            case "$STATUS" in
+              Success)
+                aws ssm get-command-invocation \
+                  --region us-east-2 \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query '{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}' \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut)
+                aws ssm get-command-invocation \
+                  --region us-east-2 \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query '{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}' \
+                  --output json || true
+                exit 1
+                ;;
+            esac
+
+            sleep 5
+          done
+
+          echo "Timed out waiting for deployment."
+          aws ssm get-command-invocation \
+            --region us-east-2 \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --output json || true
+          exit 1
+
+      - name: Deploy to EC2 through SSM
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          INSTANCE_ID: i-04706b3137e89814b
+        run: |
+          set -euo pipefail
+          SCRIPT_B64="$(base64 -w 0 scripts/deploy-ec2.sh)"
+          PARAMS="$(jq -cn --arg script "$SCRIPT_B64" --arg tag "$IMAGE_TAG" \
+            '{commands: ["printf %s " + $script + " | base64 -d > /tmp/ecommerce-deploy.sh", "sudo install -o root -g root -m 700 /tmp/ecommerce-deploy.sh /usr/local/bin/ecommerce-deploy.sh", "sudo /usr/local/bin/ecommerce-deploy.sh " + $tag]}')"
+
+          COMMAND_ID="$(aws ssm send-command \
+            --region us-east-2 \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters "$PARAMS" \
+            --comment "E-commerce deployment $IMAGE_TAG" \
+            --query 'Command.CommandId' \
+            --output text)"
+
+          echo "SSM command ID: $COMMAND_ID"
+          STATUS="Pending"
+
+          for attempt in $(seq 1 60); do
+            STATUS="$(aws ssm get-command-invocation \
+              --region us-east-2 \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query Status \
+              --output text 2>/dev/null || true)"
+
+            echo "Deployment status: ${STATUS:-Pending} ($attempt/60)"
+
+            case "$STATUS" in
+              Success)
+                aws ssm get-command-invocation \
+                  --region us-east-2 \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query '{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}' \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut)
+                aws ssm get-command-invocation \
+                  --region us-east-2 \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query '{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}' \
+                  --output json || true
+                exit 1
+                ;;
+            esac
+
+            sleep 5
+          done
+
+          echo "Timed out waiting for deployment."
+          aws ssm get-command-invocation \
+            --region us-east-2 \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --output json || true
+          exit 1
